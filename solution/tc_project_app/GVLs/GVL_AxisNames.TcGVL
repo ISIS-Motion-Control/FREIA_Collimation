@@ -1,9 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.12">
   <GVL Name="GVL_AxisNames" Id="{ac2d037b-2b8c-41f4-8d85-bcb635f10da5}">
     <Declaration><![CDATA[VAR_GLOBAL
-	//AXIS_1 : UINT := 1;
-	//AXIS_2 : UINT := 2;
+	MEASUREMENT_ANGLE : UINT := 1;
+	HEIGHT_VIRTUAL : UINT:= 2;
+	HEIGHT : UINT := 3;
+	HORIZONTAL : UINT := 4;
+	HORIZONTAL_VIRTUAL : UINT := 5;
+	ROTATION_VIRTUAL : UINT := 6;
+	ROTATION_LINEAR_REAL : UINT := 7;
+	ROTATION_LINEAR_VIRTUAL_ENCODER : UINT := 8; //Encoder only axis to get speed information from
 END_VAR]]></Declaration>
   </GVL>
 </TcPlcObject>

@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.12">
+  <DUT Name="E_KinematicState" Id="{66f6d55e-3bf8-43cf-9f83-38444d8dc714}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE E_KinematicState :
+(
+	startup,
+	disabled,
+	initDecoupled,
+	decoupled,
+	initKinematics,
+	movingToValidPosition,
+	runningKinematics,
+	error,
+	kinematicMoveRequested,
+	inKinematicMove
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.12">
   <POU Name="MAIN" Id="{33eb6f49-7781-4211-a70b-87ada6d80cb7}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM MAIN
 VAR
@@ -141,7 +141,9 @@ GVL.fbGetCurTaskIndex();
 //Pneumatics_Template();
 
 //Application program calls
-//Application_Template();]]></ST>
+//Application_Template();
+
+Kinematics();]]></ST>
       </Implementation>
     </Action>
     <Action Name="RESTORE_POSITIONS" Id="{0c7ee537-7bd9-4833-b428-c17cbb57e893}" FolderPath="POSITION_RECOVERY\">
@@ -354,6 +356,8 @@ END_FOR
     </LineIds>
     <LineIds Name="MAIN.PROG">
       <LineId Id="2" Count="11" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="14" Count="0" />
     </LineIds>
     <LineIds Name="MAIN.RESTORE_POSITIONS">
       <LineId Id="2" Count="16" />

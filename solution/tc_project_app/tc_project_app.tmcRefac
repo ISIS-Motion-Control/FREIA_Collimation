@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Refactors>
+  <Renames>
+    <RenamedType>
+      <Type guid="34b9fb3d-e2ee-41d1-af5e-9f0dae2af7e6">CALCULATECONTROLLEVER</Type>
+      <From>CalculateControlLever</From>
+      <To>CalculateControlPositions</To>
+    </RenamedType>
+  </Renames>
+</Refactors>
