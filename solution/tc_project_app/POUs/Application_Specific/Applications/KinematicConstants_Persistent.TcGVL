@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.12">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
   <GVL Name="KinematicConstants_Persistent" Id="{ea6d2908-fc6b-4019-809e-47ec3c5e028d}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 VAR_GLOBAL RETAIN
-	ActuatorPivot : ST_Coordinates := (Height:=2610.7, Distance:=-1036.01); //Zero angle coordinates
-	BenchPivot : ST_Coordinates := (Height:=1386.7, Distance:=-837); //Zero angle coordinates
-	FloatPivot : ST_Coordinates := (Height:=2936.7, Distance:=-691.5); //Zero angle coordinates
+	ActuatorPivot : ST_Coordinates := (Height:=-1036.01, Distance:=2610.7); //Zero angle coordinates
+	BenchPivot : ST_Coordinates := (Height:=-837, Distance:=1386.7); //Zero angle coordinates
+	FloatPivot : ST_Coordinates := (Height:=-691.5, Distance:=2936.7); //Zero angle coordinates
 	SamplePivot : ST_Coordinates := (Height:=0, Distance:=0);
 	
 	SampleToBench_Lever : LREAL; //READ ONLY

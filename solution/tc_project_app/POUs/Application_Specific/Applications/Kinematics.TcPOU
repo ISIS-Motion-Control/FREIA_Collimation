@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.12">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
   <POU Name="Kinematics" Id="{825ca54e-117d-476c-b2c8-97d5753ab8c8}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM Kinematics
 VAR
@@ -27,7 +27,8 @@ VAR
 	iHorizontalEncoder AT %Q* : DINT;
 	fRotationLinearEncoder: LREAL;
 	iRotationLinearEncoder AT %Q* : DINT;
-	
+	ValidKinematicPosition: BOOL;
+    kinematicThreshold : LREAL := 0.25;
 	
 	fEncoderScaler : LREAL:= 100000;
 END_VAR
@@ -53,7 +54,7 @@ Linear axis can do it's only closed loop control but we essentially have to kine
 Need some state machine logic to deal with only allowing valid kinematic positions so we don't break anything
 Need logic for loading in constant adjustments and moving accordingly (avoiding the inter situation of crap loads of virtual axes)
 *)
-
+CheckThreshold();
 
 CASE runState OF
 	E_KinematicState.startup:
@@ -98,16 +99,55 @@ CASE runState OF
 	E_KinematicState.initKinematics:
 		GVL.astAxes[GVL_AxisNames.MEASUREMENT_ANGLE].stControl.bEnable:= FALSE;
 		GVL.astAxes[GVL_AxisNames.MEASUREMENT_ANGLE].stControl.bOverrideReadyToMove:= TRUE;
+        GVL.astAxes[GVL_AxisNames.MEASUREMENT_ANGLE].stControl.bAutoEnableDisable:= TRUE;
+        
 		GVL.astAxes[GVL_AxisNames.HEIGHT].stControl.bAutoEnableDisable:= FALSE;
 		GVL.astAxes[GVL_AxisNames.HORIZONTAL].stControl.bAutoEnableDisable:= FALSE;
 		GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stControl.bAutoEnableDisable:= FALSE;
 		
-		GVL.astAxes[GVL_AxisNames.HEIGHT].stControl.bOverrideReadyToMove:= TRUE;
-		GVL.astAxes[GVL_AxisNames.HORIZONTAL].stControl.bOverrideReadyToMove:= TRUE;
-		GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stControl.bOverrideReadyToMove:= TRUE;
+		GVL.astAxes[GVL_AxisNames.HEIGHT].stControl.bOverrideReadyToMove:= FALSE;
+		GVL.astAxes[GVL_AxisNames.HORIZONTAL].stControl.bOverrideReadyToMove:= FALSE;
+		GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stControl.bOverrideReadyToMove:= FALSE;
 		
 		//We need to move to a valid kinematic position first
-		//runState:= E_KinematicState.runningKinematics;
+        IF ValidKinematicPosition THEN
+            runState:= E_KinematicState.runningKinematics;
+        ELSE
+            runState:= E_KinematicState.moveToValid;
+		END_IF
+
+    E_KinematicState.moveToValid:
+        GVL.astAxes[GVL_AxisNames.HEIGHT].stControl.bEnable:= TRUE;
+	    GVL.astAxes[GVL_AxisNames.HORIZONTAL].stControl.bEnable:= TRUE;
+		GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stControl.bEnable:= TRUE;
+        
+        IF astAxes[GVL_AxisNames.HEIGHT].stStatus.bEnabled AND astAxes[GVL_AxisNames.HORIZONTAL].stStatus.bEnabled AND astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stStatus.bEnabled THEN
+            astAxes[HEIGHT].stControl.fPosition:= astAxes[HEIGHT_VIRTUAL].Axis.NcToPlc.ActPos;
+            astAxes[HEIGHT].stControl.eCommand:= E_MotionFunctions.eMoveAbsolute;
+            astAxes[HEIGHT].stControl.bExecute:= TRUE;
+            
+            astAxes[HORIZONTAL].stControl.fPosition:= astAxes[HORIZONTAL_VIRTUAL].Axis.NcToPlc.ActPos;
+            astAxes[HORIZONTAL].stControl.eCommand:= E_MotionFunctions.eMoveAbsolute;
+            astAxes[HORIZONTAL].stControl.bExecute:= TRUE;
+            
+            astAxes[ROTATION_LINEAR_REAL].stControl.fPosition:= astAxes[ROTATION_LINEAR_VIRTUAL_ENCODER].Axis.NcToPlc.ActPos;
+            astAxes[ROTATION_LINEAR_REAL].stControl.eCommand:= E_MotionFunctions.eMoveAbsolute;
+            astAxes[ROTATION_LINEAR_REAL].stControl.bExecute:= TRUE;
+            
+            stateTransitionDelay.IN := TRUE;
+		END_IF
+        IF stateTransitionDelay.Q THEN
+			runState:= E_KinematicState.movingToValid;
+			stateTransitionDelay.IN := FALSE;
+		END_IF
+        
+    E_KinematicState.movingToValid:
+        IF astAxes[HEIGHT].Axis.Status.NotMoving AND astAxes[HORIZONTAL].Axis.Status.NotMoving AND astAxes[ROTATION_LINEAR_REAL].Axis.Status.NotMoving THEN
+            IF ValidKinematicPosition THEN
+                runState:= E_KinematicState.runningKinematics;
+			END_IF
+		END_IF
+        
 		
 	E_KinematicState.runningKinematics:
 		//Ignore any move commands to individual axes
@@ -119,8 +159,14 @@ CASE runState OF
 			GVL.astAxes[GVL_AxisNames.HEIGHT].stControl.bEnable:= TRUE;
 			GVL.astAxes[GVL_AxisNames.HORIZONTAL].stControl.bEnable:= TRUE;
 			GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stControl.bEnable:= TRUE;
-			runState:= E_KinematicState.kinematicMoveRequested;
+            stateTransitionDelay.IN := TRUE;
 		END_IF
+        IF stateTransitionDelay.Q THEN
+			runState:= E_KinematicState.kinematicMoveRequested;
+			stateTransitionDelay.IN := FALSE;
+		END_IF
+        
+        
 	
 	E_KinematicState.kinematicMoveRequested:
 		IF GVL.astAxes[GVL_AxisNames.HEIGHT].stStatus.bReadyToMove AND GVL.astAxes[GVL_AxisNames.HORIZONTAL].stStatus.bReadyToMove AND GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stStatus.bReadyToMove THEN
@@ -130,7 +176,12 @@ CASE runState OF
 		END_IF
 		IF GVL.astAxes[GVL_AxisNames.HEIGHT].Axis.Status.ExtSetPointGenEnabled AND GVL.astAxes[GVL_AxisNames.HORIZONTAL].Axis.Status.ExtSetPointGenEnabled AND GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].Axis.Status.ExtSetPointGenEnabled THEN
 			GVL.astAxes[GVL_AxisNames.MEASUREMENT_ANGLE].stControl.bExtReadyToMove:= TRUE;
+            stateTransitionDelay.IN := TRUE;
+			
+		END_IF
+        IF stateTransitionDelay.Q THEN
 			runState:= E_KinematicState.inKinematicMove;
+			stateTransitionDelay.IN := FALSE;
 		END_IF
 
 	E_KinematicState.inKinematicMove:
@@ -164,7 +215,8 @@ END_CASE
 
 
 
-
+SetEncoders();
+FeedGenerators();
 
 
 
@@ -176,6 +228,9 @@ rTrigWritePersistent(CLK:= FALSE);]]></ST>
       <Implementation>
         <ST><![CDATA[KinematicConstants.SampleToBench_Lever:= SQRT(EXPT(KinematicConstants.BenchPivot.DISTANCE-KinematicConstants.SamplePivot.DISTANCE,2)+EXPT(KinematicConstants.BenchPivot.HEIGHT-KinematicConstants.SamplePivot.HEIGHT,2));
 KinematicConstants.SampleToBench_Angle:= RAD_TO_DEG(ATAN((KinematicConstants.BenchPivot.HEIGHT-KinematicConstants.SamplePivot.HEIGHT)/(KinematicConstants.BenchPivot.DISTANCE-KinematicConstants.SamplePivot.DISTANCE)));
+
+KinematicConstants.BenchToFloat_Lever:= SQRT((EXPT(KinematicConstants.FloatPivot.DISTANCE-KinematicConstants.BenchPivot.DISTANCE,2)+EXPT(KinematicConstants.FloatPivot.HEIGHT-KinematicConstants.BenchPivot.HEIGHT,2)));
+KinematicConstants.BenchToFloat_Angle:= RAD_TO_DEG(ATAN((KinematicConstants.FloatPivot.HEIGHT-KinematicConstants.BenchPivot.HEIGHT)/(KinematicConstants.FloatPivot.DISTANCE-KinematicConstants.BenchPivot.DISTANCE)));
 ]]></ST>
       </Implementation>
     </Action>
@@ -186,6 +241,7 @@ KinematicConstants.BenchPivotTarget.HEIGHT:= KinematicConstants.SampleToBench_Le
 
 
 KinematicConstants.BenchToActuator_Angle := RAD_TO_DEG(ATAN((KinematicConstants.ActuatorPivot.HEIGHT-KinematicConstants.BenchPivot.HEIGHT)/(KinematicConstants.ActuatorPivot.DISTANCE-KinematicConstants.BenchPivot.DISTANCE)));
+
 
 
 FloatPivotOutput.DISTANCE:= KinematicConstants.BenchToFloat_Lever*COS(DEG_TO_RAD(TargetAngle+KinematicConstants.BenchToFloat_Angle))+KinematicConstants.BenchPivot.DISTANCE;
@@ -207,11 +263,39 @@ bAxisInError:= bAxisInError OR GVL.astAxes[GVL_AxisNames.HORIZONTAL].stStatus.bE
 bAxisInError:= bAxisInError OR GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stStatus.bError;]]></ST>
       </Implementation>
     </Action>
+    <Action Name="CheckThreshold" Id="{f7bb3aff-0adb-4d78-8bdf-5ea933b6a32c}">
+      <Implementation>
+        <ST><![CDATA[ValidKinematicPosition:=TRUE;
+
+IF ABS(astAxes[Height].stStatus.fActPosition - astAxes[HEIGHT_VIRTUAL].stStatus.fActPosition)<kinematicThreshold THEN
+    ValidKinematicPosition:= TRUE;
+ELSE
+    ValidKinematicPosition:= FALSE;
+END_IF
+
+IF ABS(astAxes[HORIZONTAL].stStatus.fActPosition - astAxes[HORIZONTAL_VIRTUAL].stStatus.fActPosition)<kinematicThreshold THEN
+    ValidKinematicPosition:= ValidKinematicPosition;
+ELSE
+    ValidKinematicPosition:= FALSE;
+END_IF
+
+IF ABS(astAxes[ROTATION_LINEAR_REAL].stStatus.fActPosition - astAxes[ROTATION_LINEAR_VIRTUAL_ENCODER].stStatus.fActPosition)<kinematicThreshold THEN
+    ValidKinematicPosition:= ValidKinematicPosition;
+ELSE
+    ValidKinematicPosition:= FALSE;
+END_IF]]></ST>
+      </Implementation>
+    </Action>
     <Action Name="FeedGenerators" Id="{d99cc9cf-f8dc-479e-9d91-af53e7cd7c2e}">
       <Implementation>
-        <ST><![CDATA[
+        <ST><![CDATA[astAxes[HEIGHT].stSpg.Position:= astAxes[HEIGHT_VIRTUAL].Axis.NcToPlc.ActPos;
+astAxes[HEIGHT].stSpg.Velocity:= astAxes[HEIGHT_VIRTUAL].Axis.NcToPlc.ActVelo;
 
+astAxes[HORIZONTAL].stSpg.Position:= astAxes[HORIZONTAL_VIRTUAL].Axis.NcToPlc.ActPos;
+astAxes[HORIZONTAL].stSpg.Velocity:= astAxes[HORIZONTAL_VIRTUAL].Axis.NcToPlc.ActVelo;
 
+astAxes[ROTATION_LINEAR_REAL].stSpg.Position:= astAxes[ROTATION_LINEAR_VIRTUAL_ENCODER].Axis.NcToPlc.ActPos;
+astAxes[ROTATION_LINEAR_REAL].stSpg.Velocity:= astAxes[ROTATION_LINEAR_VIRTUAL_ENCODER].Axis.NcToPlc.ActVelo;
 ]]></ST>
       </Implementation>
     </Action>
@@ -257,19 +341,80 @@ GVL.astAxes[GVL_AxisNames.ROTATION_LINEAR_REAL].stSpg.Velocity:= GVL.astAxes[GVL
       </Implementation>
     </Action>
     <LineIds Name="Kinematics">
-      <LineId Id="1" Count="137" />
+      <LineId Id="1" Count="64" />
+      <LineId Id="170" Count="1" />
+      <LineId Id="66" Count="8" />
+      <LineId Id="192" Count="1" />
+      <LineId Id="195" Count="1" />
+      <LineId Id="194" Count="0" />
+      <LineId Id="75" Count="0" />
+      <LineId Id="197" Count="0" />
+      <LineId Id="200" Count="1" />
+      <LineId Id="199" Count="0" />
+      <LineId Id="202" Count="2" />
+      <LineId Id="206" Count="0" />
+      <LineId Id="208" Count="1" />
+      <LineId Id="211" Count="1" />
+      <LineId Id="210" Count="0" />
+      <LineId Id="213" Count="0" />
+      <LineId Id="215" Count="1" />
+      <LineId Id="214" Count="0" />
+      <LineId Id="217" Count="0" />
+      <LineId Id="219" Count="4" />
+      <LineId Id="218" Count="0" />
+      <LineId Id="224" Count="3" />
+      <LineId Id="229" Count="1" />
+      <LineId Id="228" Count="0" />
+      <LineId Id="198" Count="0" />
+      <LineId Id="76" Count="10" />
+      <LineId Id="174" Count="0" />
+      <LineId Id="88" Count="0" />
+      <LineId Id="180" Count="5" />
+      <LineId Id="89" Count="8" />
+      <LineId Id="186" Count="0" />
+      <LineId Id="98" Count="1" />
+      <LineId Id="188" Count="2" />
+      <LineId Id="187" Count="0" />
+      <LineId Id="100" Count="32" />
+      <LineId Id="172" Count="0" />
+      <LineId Id="133" Count="5" />
     </LineIds>
     <LineIds Name="Kinematics.CalculateConstants">
-      <LineId Id="1" Count="2" />
+      <LineId Id="1" Count="1" />
+      <LineId Id="4" Count="0" />
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="1" />
     </LineIds>
     <LineIds Name="Kinematics.CalculateControlPositions">
-      <LineId Id="1" Count="13" />
+      <LineId Id="1" Count="4" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="6" Count="8" />
     </LineIds>
     <LineIds Name="Kinematics.CheckErrorState">
       <LineId Id="1" Count="5" />
     </LineIds>
+    <LineIds Name="Kinematics.CheckThreshold">
+      <LineId Id="1" Count="0" />
+      <LineId Id="3" Count="0" />
+      <LineId Id="2" Count="0" />
+      <LineId Id="4" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="10" Count="4" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="16" Count="4" />
+      <LineId Id="15" Count="0" />
+    </LineIds>
     <LineIds Name="Kinematics.FeedGenerators">
-      <LineId Id="1" Count="3" />
+      <LineId Id="1" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="2" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="3" Count="0" />
+      <LineId Id="9" Count="1" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="4" Count="0" />
     </LineIds>
     <LineIds Name="Kinematics.LoadPersistent">
       <LineId Id="1" Count="3" />

@@ -322,7 +322,7 @@ MC_ExtSetPointGenFeed(
 	Position:= _stAxis.stSpg.Position,
 	Velocity:= _stAxis.stSpg.Velocity,
 	Acceleration:= _stAxis.stSpg.Acceleration,
-	Direction:= _stAxis.stSpg.Direction);]]></ST>
+	Direction:= DirectionInternal);]]></ST>
       </Implementation>
     </Method>
     <Method Name="mControl_Home" Id="{1c89166c-d22b-4ec1-832b-29e319ac35a4}" FolderPath="Control Methods\">
