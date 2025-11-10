@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.11">
+  <POU Name="AxisTestProg" Id="{bde0c31b-9af8-4eb7-ac0d-a1bf58e721b3}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM AxisTestProg
+VAR
+    limitsPower AT %Q*: BOOL :=TRUE;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[astAxes[1].stControl.bEnable:= TRUE;]]></ST>
+    </Implementation>
+  </POU>
+</TcPlcObject>
